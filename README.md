@@ -14,6 +14,14 @@ composer install
 docker-compose up -d
 ```
 
+3. Create file for your configuration and environmental variables by
+ coping contents of  the `.env.example` file to a new  `.env` file 
+
+3. Generate encryption keys for application, by  running
+```
+php artisan key:generate
+```
+
 4. Run
 ```
 php artisan serve

@@ -5,11 +5,14 @@ use Illuminate\Http\Request;
 use OpenTelemetry\Contrib\Jaeger\Exporter as JaegerExporter;
 use OpenTelemetry\Contrib\Zipkin\Exporter as ZipkinExporter;
 use OpenTelemetry\Sdk\Trace\Clock;
+use OpenTelemetry\Context\Context;
 use OpenTelemetry\Sdk\Trace\Sampler\AlwaysOnSampler;
 use OpenTelemetry\Sdk\Trace\SamplingResult;
 use OpenTelemetry\Sdk\Trace\SpanProcessor\BatchSpanProcessor;
 use OpenTelemetry\Sdk\Trace\TracerProvider;
 use OpenTelemetry\Trace as API;
+use GuzzleHttp\Client;
+use GuzzleHttp\Psr7\HttpFactory;
 
 define('LARAVEL_START', microtime(true));
 
@@ -54,24 +57,29 @@ require __DIR__.'/../vendor/autoload.php';
 
 $sampler = new AlwaysOnSampler();
 $samplingResult = $sampler->shouldSample(
-    null,
+    new Context(),
     md5((string) microtime(true)),
-    substr(md5((string) microtime(true)), 16),
     'io.opentelemetry.example',
     API\SpanKind::KIND_INTERNAL
 );
 
 $jaegerExporter = new JaegerExporter(
     'Hello World Web Server Jaeger',
-    'http://localhost:9412/api/v2/spans'
+    'http://localhost:9412/api/v2/spans',
+    new Client(),
+    new HttpFactory(),
+    new HttpFactory()
 );
 
 $zipkinExporter = new ZipkinExporter(
     'Hello World Web Server Zipkin',
-    'http://localhost:9411/api/v2/spans'
+    'http://localhost:9411/api/v2/spans',
+    new Client(),
+    new HttpFactory(),
+    new HttpFactory()
 );
 
-if (SamplingResult::RECORD_AND_SAMPLED === $samplingResult->getDecision()) {
+if (SamplingResult::RECORD_AND_SAMPLE === $samplingResult->getDecision()) {
 
     $jaegerTracer = (new TracerProvider())
         ->addSpanProcessor(new BatchSpanProcessor($jaegerExporter, Clock::get()))
@@ -97,7 +105,7 @@ $response = tap($kernel->handle(
 
 $kernel->terminate($request, $response);
 
-if (SamplingResult::RECORD_AND_SAMPLED === $samplingResult->getDecision()) {
+if (SamplingResult::RECORD_AND_SAMPLE === $samplingResult->getDecision()) {
     $zipkinTracer->endActiveSpan();
     $jaegerTracer->endActiveSpan();
 }
